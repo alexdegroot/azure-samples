@@ -7,8 +7,10 @@ param location string
 @description('The tags that will be applied to the VNet')
 param tags object
 
-var envInfraSubnetName = 'infra-subnet'
-var appGatewaySubnetName = 'app-gateway-subnet'
+var applicationSubnetName = 'app-subnet'
+var appGatewaySubnetName = 'gateway-subnet'
+var firewallSubnetName = 'firewall-subnet'
+var endpointSubnetName = 'endpoint-subnet'
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
   name: vnetName
@@ -22,7 +24,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
     }
     subnets: [
       { 
-        name: envInfraSubnetName
+        name: applicationSubnetName
         properties: {
           addressPrefix: '10.0.0.0/23'
         }
@@ -34,18 +36,39 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
           privateLinkServiceNetworkPolicies: 'Disabled'
         }
       }
+      { 
+        name: firewallSubnetName
+        properties: {
+          addressPrefix: '10.0.3.0/24'
+          privateLinkServiceNetworkPolicies: 'Disabled'
+        }
+      }
+      { 
+        name: endpointSubnetName
+        properties: {
+          addressPrefix: '10.0.4.0/24'
+          privateLinkServiceNetworkPolicies: 'Disabled'
+        }
+      }
     ]
   }
 
-  resource envSubnet 'subnets' existing = {
-    name: envInfraSubnetName
+  resource applicationSubnet 'subnets' existing = {
+    name: applicationSubnetName
   }
 
   resource appGatewaySubnet 'subnets' existing = {
     name: appGatewaySubnetName
   }
+  resource firewallSubnet 'subnets' existing = {
+    name: firewallSubnetName
+  }
+  resource endpointSubnet 'subnets' existing = {
+    name: endpointSubnetName
+  }
 }
 
 output name string = vnet.name
-output acaSubnetId string = vnet::envSubnet.id
-output appGatewaySubnetId string = vnet::appGatewaySubnet.id
+output applicationSubnetId string = vnet::applicationSubnet.id
+output gatewaySubnetId string = vnet::appGatewaySubnet.id
+output firewallSubnetId string = vnet::firewallSubnet.id

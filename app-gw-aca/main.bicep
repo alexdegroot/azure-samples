@@ -1,3 +1,4 @@
+@minLength(13)
 @description('The suffix applied to all resources')
 param appSuffix string = uniqueString(resourceGroup().id)
 
@@ -24,6 +25,9 @@ param appGatewayName string = 'gw-${appSuffix}'
 
 @description('The name of the Public IP address that will be deployed')
 param ipAddressName string = '${appGatewayName}-pip'
+
+@description('The name of the Azure Container Registry that will be deployed')
+param acrName string = 'acr${appSuffix}'
 
 @description('This is the built-in Contributor role. See https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#contributor')
 resource networkContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
@@ -58,10 +62,19 @@ module law 'monitoring/log-analytics.bicep' = {
   }
 }
 
-module env 'host/container-app-env.bicep' = {
+module acr 'deployment/container-registry.bicep' = {
+  name: 'acr'
+  params: {
+    acrName: acrName
+    location: location
+    tags: tags
+  }
+}
+
+module env 'application/container-app-env.bicep' = {
   name: 'env'
   params: {
-    acaSubnetId: vnet.outputs.acaSubnetId 
+    acaSubnetId: vnet.outputs.applicationSubnetId 
     envName: envName 
     lawName: law.outputs.name
     location: location
@@ -69,7 +82,7 @@ module env 'host/container-app-env.bicep' = {
   }
 }
 
-module accountapi 'host/container-app.bicep' = {
+module accountapi 'application/container-app.bicep' = {
   name: 'accountapi'
   params: {
     containerAppEnvName: env.outputs.containerAppEnvName
@@ -80,7 +93,7 @@ module accountapi 'host/container-app.bicep' = {
   }
 }
 
-module paymentapi 'host/container-app.bicep' = {
+module paymentapi 'application/container-app.bicep' = {
   name: 'paymentapi'
   params: {
     containerAppEnvName: env.outputs.containerAppEnvName
@@ -111,8 +124,7 @@ module appGateway 'network/app-gateway.bicep' = {
     pool2_path: '/accounts'
     ipAddressName: ipAddressName
     location: location
-    //privateLinkServiceName: privateLinkServiceName
-    subnetId: vnet.outputs.appGatewaySubnetId
+    subnetId: vnet.outputs.gatewaySubnetId
     tags: tags
   }
 }
