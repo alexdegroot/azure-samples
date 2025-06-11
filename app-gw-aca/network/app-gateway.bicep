@@ -7,9 +7,6 @@ param ipAddressName string
 @description('The subnet ID that will be used for the App Gateway configuration')
 param subnetId string
 
-@description('The subnet ID of the Container App Environment that will be used for the Private Link service')
-param envSubnetId string
-
 @description('The FQDN of for Pool 1')
 param pool1_fqdn string
 
@@ -64,6 +61,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-07-01' = {
     privateLinkConfigurations: [
       { 
         name: 'my-agw-private-link'
+
         properties: {
           ipConfigurations: [
             { 
@@ -146,19 +144,6 @@ resource appGateway 'Microsoft.Network/applicationGateways@2024-07-01' = {
           protocol: 'Http'
         }
       }
-      // { 
-      //   name: 'my-agw-listener-multisite'
-      //   properties: {
-      //     frontendIPConfiguration: {
-      //       id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'my-frontend')
-      //     }
-      //     frontendPort: {
-      //       id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port_80')
-      //     }
-      //     protocol: 'Http'
-      //     hostNames: ['demo.legrande.biz']
-      //   }
-      // }
     ]
     urlPathMaps: [
       { 
@@ -232,29 +217,3 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2024-07-01' = {
     publicIPAllocationMethod: 'Static'
   }
 }
-
-// resource privateLinkService 'Microsoft.Network/privateLinkServices@2024-07-01' = {
-//   name: privateLinkServiceName
-//   location: location
-//   properties: {
-//     loadBalancerFrontendIpConfigurations: [
-//       { 
-//         //subscriptions/1eafaf95-248e-49b5-b2e0-4fc94e0f0645/resourceGroups/rg-minibank-demo/providers/Microsoft.Network/applicationGateways/gw-dqoelu4zweioa/frontendIPConfigurations/my-frontend
-//         id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGateway.name, 'my-frontend')
-//       }     
-//     ]
-//     ipConfigurations: [
-//       {
-//         name: 'my-agw-private-link-config'
-//         properties: {
-//           privateIPAllocationMethod: 'Dynamic'
-//           privateIPAddressVersion: 'IPv4'
-//           primary: true
-//           subnet: {
-//             id: envSubnetId
-//           }
-//         }
-//       }
-//     ]
-//   }
-// }

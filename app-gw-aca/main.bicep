@@ -19,17 +19,11 @@ param virtualNetworkName string = 'vnet-${appSuffix}'
 @description('The name of the Log Analytics workspace that will be deployed')
 param logAnalyticsName string = 'law-${appSuffix}'
 
-@description('The name of the Container App that will be deployed')
-param containerAppName string = 'app-${appSuffix}'
-
 @description('The name of the App Gateway that will be deployed')
 param appGatewayName string = 'gw-${appSuffix}'
 
 @description('The name of the Public IP address that will be deployed')
 param ipAddressName string = '${appGatewayName}-pip'
-
-@description('The name of the Private Link Service that will be created')
-param privateLinkServiceName string = 'my-agw-private-link'
 
 @description('This is the built-in Contributor role. See https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#contributor')
 resource networkContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
@@ -115,7 +109,6 @@ module appGateway 'network/app-gateway.bicep' = {
     pool1_path: '/payments'
     pool2_fqdn: accountapi.outputs.fqdn
     pool2_path: '/accounts'
-    envSubnetId: vnet.outputs.acaSubnetId
     ipAddressName: ipAddressName
     location: location
     //privateLinkServiceName: privateLinkServiceName
