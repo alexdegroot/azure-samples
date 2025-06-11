@@ -31,6 +31,21 @@ param ipAddressName string = '${appGatewayName}-pip'
 @description('The name of the Private Link Service that will be created')
 param privateLinkServiceName string = 'my-agw-private-link'
 
+@description('This is the built-in Contributor role. See https://learn.microsoft.com/azure/role-based-access-control/built-in-roles#contributor')
+resource networkContributorRoleDefinition 'Microsoft.Authorization/roleDefinitions@2022-04-01' existing = {
+  scope: subscription()
+  name: '4d97b98b-1d4f-4787-a291-c67834d212e7'
+}
+
+resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, deployer().objectId, networkContributorRoleDefinition.id)
+  properties: {
+    roleDefinitionId: networkContributorRoleDefinition.id
+    principalId: deployer().objectId
+    principalType: 'User'
+  }
+}
+
 module vnet 'network/virtual-network.bicep' = {
   name: 'vnet'
   params: {
