@@ -82,23 +82,25 @@ module env 'application/container-app-env.bicep' = {
   }
 }
 
-module accountapi 'application/container-app.bicep' = {
+module accountapi 'application/container-api.bicep' = {
   name: 'accountapi'
   params: {
     containerAppEnvName: env.outputs.containerAppEnvName
     containerAppName: 'app-accountapi-${appSuffix}'
     containerImage: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+    pullManagedIdentityId: acr.outputs.managedIdentityId
     location: location
     tags: tags
   }
 }
 
-module paymentapi 'application/container-app.bicep' = {
+module paymentapi 'application/container-api.bicep' = {
   name: 'paymentapi'
   params: {
     containerAppEnvName: env.outputs.containerAppEnvName
     containerAppName: 'app-paymentapi-${appSuffix}'
     containerImage: 'kennethreitz/httpbin:latest'
+    pullManagedIdentityId: acr.outputs.managedIdentityId
     location: location
     tags: tags
   }

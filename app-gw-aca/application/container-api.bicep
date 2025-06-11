@@ -51,6 +51,9 @@ param minReplicas int = 1
 @maxValue(25)
 param maxReplicas int = 3
 
+@description('The ID of the Managed Identity that has pull permissions to the Azure Container Registry')
+param pullManagedIdentityId string
+
 resource env 'Microsoft.App/managedEnvironments@2023-11-02-preview' existing = {
   name: containerAppEnvName
 }
@@ -59,6 +62,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: containerAppName
   tags: tags
   location: location
+  identity: {
+      type: 'UserAssigned'
+      userAssignedIdentities: {
+        '${pullManagedIdentityId}': {}
+      }
+  }
   properties: {
     managedEnvironmentId: env.id
     configuration: {
