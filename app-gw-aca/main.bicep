@@ -6,10 +6,8 @@ param location string = resourceGroup().location
 
 @description('The tags to apply to all resources')
 param tags object = {
-  SampleName: 'aca-app-gateway'
-  Owner: 'Will Velida'
-  Application: 'Azure-Samples'
-  Environment: 'DEV'
+  Application: 'Zero-Trust Minibank Deposits'
+  Environment: 'DEMO'
 }
 
 @description('The name of the container app env')
@@ -62,11 +60,23 @@ module env 'host/container-app-env.bicep' = {
   }
 }
 
-module containerApp 'host/container-app.bicep' = {
-  name: 'app'
+module accountapi 'host/container-app.bicep' = {
+  name: 'accountapi'
   params: {
     containerAppEnvName: env.outputs.containerAppEnvName
-    containerAppName: containerAppName
+    containerAppName: 'app-accountapi-${appSuffix}'
+    containerImage: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+    location: location
+    tags: tags
+  }
+}
+
+module paymentapi 'host/container-app.bicep' = {
+  name: 'paymentapi'
+  params: {
+    containerAppEnvName: env.outputs.containerAppEnvName
+    containerAppName: 'app-paymentapi-${appSuffix}'
+    containerImage: 'kennethreitz/httpbin:latest'
     location: location
     tags: tags
   }
@@ -86,11 +96,14 @@ module appGateway 'network/app-gateway.bicep' = {
   name: 'appgateway'
   params: {
     appGatewayName: appGatewayName
-    containerAppFqdn: containerApp.outputs.fqdn
+    pool1_fqdn: paymentapi.outputs.fqdn
+    pool1_path: '/payments'
+    pool2_fqdn: accountapi.outputs.fqdn
+    pool2_path: '/accounts'
     envSubnetId: vnet.outputs.acaSubnetId
     ipAddressName: ipAddressName
     location: location
-    privateLinkServiceName: privateLinkServiceName
+    //privateLinkServiceName: privateLinkServiceName
     subnetId: vnet.outputs.appGatewaySubnetId
     tags: tags
   }

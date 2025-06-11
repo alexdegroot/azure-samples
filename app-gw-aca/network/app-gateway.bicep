@@ -10,11 +10,17 @@ param subnetId string
 @description('The subnet ID of the Container App Environment that will be used for the Private Link service')
 param envSubnetId string
 
-@description('The FQDN of the Container App')
-param containerAppFqdn string
+@description('The FQDN of for Pool 1')
+param pool1_fqdn string
 
-@description('The name of the Private Link Service')
-param privateLinkServiceName string
+@description('The Path of for Pool 1')
+param pool1_path string
+
+@description('The FQDN of for Pool 2')
+param pool2_fqdn string
+
+@description('The Path of for Pool 2')
+param pool2_path string
 
 @description('The location where the App Gateway will be deployed')
 param location string
@@ -22,7 +28,7 @@ param location string
 @description('The tags that will be applied to the App Gateway')
 param tags object
 
-resource appGateway 'Microsoft.Network/applicationGateways@2023-11-01' = {
+resource appGateway 'Microsoft.Network/applicationGateways@2024-07-01' = {
   name: appGatewayName
   location: location
   tags: tags
@@ -83,12 +89,32 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-11-01' = {
       }
     ]
     backendAddressPools: [
-      {
-        name: 'my-agw-backend-pool'
+      { 
+        name: 'root-pool'
         properties: {
           backendAddresses: [
             { 
-              fqdn: containerAppFqdn
+              fqdn: 'hmpg.net'
+            }
+          ]
+        }
+      }
+      {
+        name: 'pool_1'
+        properties: {
+          backendAddresses: [
+            { 
+              fqdn: pool1_fqdn
+            }
+          ]
+        }
+      }
+      {
+        name: 'pool_2'
+        properties: {
+          backendAddresses: [
+            { 
+              fqdn: pool2_fqdn
             }
           ]
         }
@@ -103,6 +129,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-11-01' = {
           cookieBasedAffinity: 'Disabled'
           requestTimeout: 20
           pickHostNameFromBackendAddress: true
+          path: '/'
         }
       }
     ]
@@ -119,21 +146,70 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-11-01' = {
           protocol: 'Http'
         }
       }
+      // { 
+      //   name: 'my-agw-listener-multisite'
+      //   properties: {
+      //     frontendIPConfiguration: {
+      //       id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'my-frontend')
+      //     }
+      //     frontendPort: {
+      //       id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'port_80')
+      //     }
+      //     protocol: 'Http'
+      //     hostNames: ['demo.legrande.biz']
+      //   }
+      // }
+    ]
+    urlPathMaps: [
+      { 
+        name: 'agw-url-path-map'
+        properties: {
+          defaultBackendAddressPool: {
+            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'root-pool')
+          }
+          defaultBackendHttpSettings: {
+            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'my-agw-backend-setting')
+          }
+          pathRules: [
+            { 
+              name: 'rule1'
+              properties: {
+                paths: ['${pool1_path}/*']
+                backendAddressPool: {
+                  id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'pool_1')
+                }
+                backendHttpSettings: {
+                  id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'my-agw-backend-setting')
+                }
+              }
+            }
+            { 
+              name: 'rule2'
+              properties: {
+                paths: ['${pool2_path}/*']
+                backendAddressPool: {
+                  id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'pool_2')
+                }
+                backendHttpSettings: {
+                  id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'my-agw-backend-setting')
+                }
+              }
+            }
+          ]
+        }
+      }
     ]
     requestRoutingRules: [
       { 
         name: 'my-agw-routing-rule'
         properties: {
           priority: 1
-          ruleType: 'Basic'
+          ruleType: 'PathBasedRouting'
           httpListener: {
             id: resourceId('Microsoft.Network/applicationGateways/httpListeners', appGatewayName, 'my-agw-listener')
           }
-          backendAddressPool: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', appGatewayName, 'my-agw-backend-pool')
-          }
-          backendHttpSettings: {
-            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', appGatewayName, 'my-agw-backend-setting')
+          urlPathMap: {
+            id: resourceId('Microsoft.Network/applicationGateways/urlPathMaps', appGatewayName, 'agw-url-path-map')
           }
         }
       }
@@ -142,7 +218,7 @@ resource appGateway 'Microsoft.Network/applicationGateways@2023-11-01' = {
   }
 }
 
-resource publicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = {
+resource publicIp 'Microsoft.Network/publicIPAddresses@2024-07-01' = {
   name: ipAddressName
   location: location
   sku: {
@@ -157,27 +233,28 @@ resource publicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = {
   }
 }
 
-resource privateLinkService 'Microsoft.Network/privateLinkServices@2023-11-01' = {
-  name: privateLinkServiceName
-  location: location
-  properties: {
-    loadBalancerFrontendIpConfigurations: [
-      { 
-        id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGateway.name, 'my-frontend')
-      }     
-    ]
-    ipConfigurations: [
-      {
-        name: 'my-agw-private-link-config'
-        properties: {
-          privateIPAllocationMethod: 'Dynamic'
-          privateIPAddressVersion: 'IPv4'
-          primary: true
-          subnet: {
-            id: envSubnetId
-          }
-        }
-      }
-    ]
-  }
-}
+// resource privateLinkService 'Microsoft.Network/privateLinkServices@2024-07-01' = {
+//   name: privateLinkServiceName
+//   location: location
+//   properties: {
+//     loadBalancerFrontendIpConfigurations: [
+//       { 
+//         //subscriptions/1eafaf95-248e-49b5-b2e0-4fc94e0f0645/resourceGroups/rg-minibank-demo/providers/Microsoft.Network/applicationGateways/gw-dqoelu4zweioa/frontendIPConfigurations/my-frontend
+//         id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGateway.name, 'my-frontend')
+//       }     
+//     ]
+//     ipConfigurations: [
+//       {
+//         name: 'my-agw-private-link-config'
+//         properties: {
+//           privateIPAllocationMethod: 'Dynamic'
+//           privateIPAddressVersion: 'IPv4'
+//           primary: true
+//           subnet: {
+//             id: envSubnetId
+//           }
+//         }
+//       }
+//     ]
+//   }
+// }
